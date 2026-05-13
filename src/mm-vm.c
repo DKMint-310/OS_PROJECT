@@ -134,30 +134,49 @@ int validate_overlap_vm_area(struct pcb_t *caller, int vmaid, addr_t vmastart, a
  */
 int inc_vma_limit(struct pcb_t *caller, int vmaid, addr_t inc_sz)
 {
-  //struct vm_rg_struct * newrg = malloc(sizeof(struct vm_rg_struct));
-
+  struct vm_rg_struct * newrg = malloc(sizeof(struct vm_rg_struct));
+  if (newrg == NULL) return -1;  
   /* TOTO with new address scheme, the size need tobe aligned 
    *      the raw inc_sz maybe not fit pagesize
    */ 
-  //addr_t inc_amt;
+  int inc_amt = inc_sz; 
+  int incnumpage =  (inc_amt + PAGING_PAGESZ - 1) / PAGING_PAGESZ;
 
-//  int incnumpage =  inc_amt / PAGING_PAGESZ;
-
+  struct vm_area_struct *cur_vma = get_vma_by_num(caller->krnl->mm, vmaid);
+  if (cur_vma == NULL) {
+    free(newrg);
+    return -1;
+  }
   /* TODO Validate overlap of obtained region */
-  //if (validate_overlap_vm_area(caller, vmaid, area->rg_start, area->rg_end) < 0)
-  //  return -1; /*Overlap and failed allocation */
-
+  addr_t old_end = cur_vma->sbrk;
+  addr_t new_end = old_end + inc_amt;
+if (validate_overlap_vm_area(caller, vmaid, old_end, new_end) < 0) {
+    free(newrg);
+    return -1; 
+  }
+cur_vma->sbrk = new_end;
+  if (cur_vma->sbrk > cur_vma->vm_end) {
+    cur_vma->vm_end = (cur_vma->sbrk + PAGING_PAGESZ - 1) / PAGING_PAGESZ * PAGING_PAGESZ;
+  }
   /* TODO: Obtain the new vm area based on vmaid */
   //cur_vma->vm_end... 
   // inc_limit_ret...
   /* The obtained vm area (only)
    * now will be alloc real ram region */
 
-//  if (vm_map_ram(caller, area->rg_start, area->rg_end, 
-//                   old_end, incnumpage , newrg) < 0)
-//    return -1; /* Map the memory to MEMRAM */
+struct framephy_struct *frm_lst = NULL;
+  if (alloc_pages_range(caller, incnumpage, &frm_lst) < 0) {
+      free(newrg);
+      return -1; // Không đủ RAM vật lý để cấp phát
+  }
+
+  /* Ánh xạ vùng địa chỉ ảo mới (từ old_end) vào danh sách khung trang vật lý (frm_lst) */
+  if (vmap_page_range(caller, old_end, incnumpage, frm_lst, newrg) < 0) {
+    free(newrg);
+    return -1; // Ánh xạ thất bại
+  }
 
   return 0;
 }
 
-// #endif
+//#endif
