@@ -61,6 +61,26 @@
 #define PAGING64_ADDR_P4D_MASK  GENMASK64(PAGING64_ADDR_P4D_HIBIT,PAGING64_ADDR_P4D_LOBIT)
 #define PAGING64_ADDR_PGD_MASK  GENMASK64(PAGING64_ADDR_PGD_HIBIT,PAGING64_ADDR_PGD_LOBIT)
 
-
+int init_pte(addr_t *pte, int pre, addr_t fpn, int drt, int swp, int swptyp, addr_t swpoff);
+int get_pd_from_address(addr_t addr, addr_t *pgd, addr_t *p4d, addr_t *pud, addr_t *pmd, addr_t *pt);
+int get_pd_from_pagenum(addr_t pgn, addr_t *pgd, addr_t *p4d, addr_t *pud, addr_t *pmd, addr_t *pt);
+int pte_set_swap(struct pcb_t *caller, addr_t pgn, int swptyp, addr_t swpoff);
+int pte_set_fpn(struct pcb_t *caller, addr_t pgn, addr_t fpn);
+uint32_t pte_get_entry(struct pcb_t *caller, addr_t pgn);
+int pte_set_entry(struct pcb_t *caller, addr_t pgn, uint32_t pte_val);
+int vmap_pgd_memset(struct pcb_t *caller, addr_t addr, int pgnum);
+addr_t vmap_page_range(struct pcb_t *caller, addr_t addr, int pgnum, struct framephy_struct *frames, struct vm_rg_struct *ret_rg);
+addr_t alloc_pages_range(struct pcb_t *caller, int req_pgnum, struct framephy_struct **frm_lst);
+addr_t vm_map_ram(struct pcb_t *caller, addr_t astart, addr_t aend, addr_t mapstart, int incpgnum, struct vm_rg_struct *ret_rg);
+int __swap_cp_page(struct memphy_struct *mpsrc, addr_t srcfpn, struct memphy_struct *mpdst, addr_t dstfpn);
+int init_mm(struct mm_struct *mm, struct pcb_t *caller);
+struct vm_rg_struct *init_vm_rg(addr_t rg_start, addr_t rg_end);
+int enlist_vm_rg_node(struct vm_rg_struct **rglist, struct vm_rg_struct *rgnode);
+int enlist_pgn_node(struct pgn_t **plist, addr_t pgn);
+int print_list_fp(struct framephy_struct *ifp);
+int print_list_rg(struct vm_rg_struct *irg);
+int print_list_vma(struct vm_area_struct *ivma);
+int print_list_pgn(struct pgn_t *ip);
+int print_pgtbl(struct pcb_t *caller, addr_t start, addr_t end);
 
 #endif
