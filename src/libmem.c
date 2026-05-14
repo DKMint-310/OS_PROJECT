@@ -220,43 +220,43 @@ int libfree(struct pcb_t *proc, uint32_t reg_index)
  */
 int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
 {
-  uint32_t pte = pte_get_entry(caller, pgn);
+    uint32_t pte = pte_get_entry(caller, pgn);
 
-  if (!PAGING_PAGE_PRESENT(pte))
-  { 
-    addr_t vicpgn, swpfpn;
-    addr_t vicfpn;
-    addr_t vicpte;
-    struct sc_regs regs;
-
-    if (find_victim_page(caller->krnl->mm, &vicpgn) == -1)
+    if (!PAGING_PAGE_PRESENT(pte))
     {
-      return -1;
+        addr_t vicpgn, swpfpn;
+        addr_t vicfpn;
+        addr_t vicpte;
+        struct sc_regs regs;
+
+        if (find_victim_page(caller->krnl->mm, &vicpgn) == -1)
+        {
+            return -1;
+        }
+
+        if (MEMPHY_get_freefp(caller->krnl->active_mswp, &swpfpn) == -1)
+        {
+            return -1;
+        }
+
+        vicpte = pte_get_entry(caller, vicpgn);
+        vicfpn = PAGING_FPN(vicpte);
+
+        regs.a1 = SYSMEM_SWP_OP;
+        regs.a2 = vicpgn;
+        regs.a3 = swpfpn;
+        regs.a4 = pgn;
+        _syscall(caller->krnl, caller->pid, 17, &regs);
+
+        pte_set_swap(caller, vicpgn, 0, swpfpn);
+        pte_set_fpn(caller, pgn, vicfpn);
+
+        enlist_pgn_node(&caller->krnl->mm->fifo_pgn, pgn);
     }
 
-    if (MEMPHY_get_freefp(caller->krnl->active_mswp, &swpfpn) == -1)
-    {
-      return -1;
-    }
+    *fpn = PAGING_FPN(pte_get_entry(caller, pgn));
 
-    vicpte = pte_get_entry(caller, vicpgn);
-    vicfpn = PAGING_FPN(vicpte);
-
-    regs.a1 = SYSMEM_SWP_OP;
-    regs.a2 = vicpgn;
-    regs.a3 = swpfpn;
-    regs.a4 = pgn; 
-    _syscall(caller->krnl, caller->pid, 17, &regs); 
-
-    pte_set_swap(caller, vicpgn, 0, swpfpn);
-    pte_set_fpn(caller, pgn, vicfpn);
-
-    enlist_pgn_node(&caller->krnl->mm->fifo_pgn, pgn);
-  }
-
-  *fpn = PAGING_FPN(pte_get_entry(caller,pgn));
-
-  return 0;
+    return 0;
 }
 
 /*pg_getval - read value at given offset
@@ -267,22 +267,22 @@ int pg_getpage(struct mm_struct *mm, int pgn, int *fpn, struct pcb_t *caller)
  */
 int pg_getval(struct mm_struct *mm, int addr, BYTE *data, struct pcb_t *caller)
 {
-  int pgn = PAGING_PGN(addr);
-  int off = PAGING_OFFST(addr);
-  int fpn;
+    int pgn = PAGING_PGN(addr);
+    int off = PAGING_OFFST(addr);
+    int fpn;
 
-  if (pg_getpage(mm, pgn, &fpn, caller) != 0)
-    return -1; 
+    if (pg_getpage(mm, pgn, &fpn, caller) != 0)
+        return -1;
 
-  int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
+    int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
 
-  struct sc_regs regs;
-  regs.a1 = SYSMEM_IO_READ;
-  regs.a2 = phyaddr;
-  regs.a3 = (arg_t)data;
-  _syscall(caller->krnl, caller->pid, 17, &regs);
+    struct sc_regs regs;
+    regs.a1 = SYSMEM_IO_READ;
+    regs.a2 = phyaddr;
+    regs.a3 = (arg_t)data;
+    _syscall(caller->krnl, caller->pid, 17, &regs);
 
-  return 0;
+    return 0;
 }
 
 /*pg_setval - write value to given offset
@@ -293,22 +293,22 @@ int pg_getval(struct mm_struct *mm, int addr, BYTE *data, struct pcb_t *caller)
  */
 int pg_setval(struct mm_struct *mm, int addr, BYTE value, struct pcb_t *caller)
 {
-  int pgn = PAGING_PGN(addr);
-  int off = PAGING_OFFST(addr);
-  int fpn;
+    int pgn = PAGING_PGN(addr);
+    int off = PAGING_OFFST(addr);
+    int fpn;
 
-  if (pg_getpage(mm, pgn, &fpn, caller) != 0)
-    return -1; 
+    if (pg_getpage(mm, pgn, &fpn, caller) != 0)
+        return -1;
 
-  int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
+    int phyaddr = (fpn << PAGING_ADDR_FPN_LOBIT) + off;
 
-  struct sc_regs regs;
-  regs.a1 = SYSMEM_IO_WRITE;
-  regs.a2 = phyaddr;
-  regs.a3 = value;
-  _syscall(caller->krnl, caller->pid, 17, &regs);
+    struct sc_regs regs;
+    regs.a1 = SYSMEM_IO_WRITE;
+    regs.a2 = phyaddr;
+    regs.a3 = value;
+    _syscall(caller->krnl, caller->pid, 17, &regs);
 
-  return 0;
+    return 0;
 }
 
 /*__read - read value in region memory
@@ -414,7 +414,8 @@ int libkmem_malloc(struct pcb_t *caller, uint32_t size, uint32_t reg_index)
     addr_t addr;
     int val = __kmalloc(caller, -1, reg_index, size, &addr);
 
-    if (val != 0) {
+    if (val != 0)
+    {
         return -1;
     }
 
@@ -442,11 +443,12 @@ addr_t __kmalloc(struct pcb_t *caller, int vmaid, int rgid, addr_t size, addr_t 
 int libkmem_cache_pool_create(struct pcb_t *caller, uint32_t size, uint32_t align, uint32_t cache_pool_id)
 {
     struct krnl_t *krnl = caller->krnl;
-    
-    if (krnl->kcpooltbl == NULL) {
+
+    if (krnl->kcpooltbl == NULL)
+    {
         krnl->kcpooltbl = malloc(sizeof(struct kcache_pool_struct) * PAGING_MAX_SYMTBL_SZ);
     }
-    
+
     krnl->kcpooltbl[cache_pool_id].size = size;
     krnl->kcpooltbl[cache_pool_id].align = align;
 
@@ -484,18 +486,21 @@ addr_t __kmem_cache_alloc(struct pcb_t *caller, int vmaid, int rgid, int cache_p
 {
     struct krnl_t *krnl = caller->krnl;
     uint32_t size = krnl->kcpooltbl[cache_pool_id].size;
-    
+
     return __alloc(caller, vmaid, rgid, size, alloc_addr);
 }
 
 int libkmem_copy_from_user(struct pcb_t *caller, uint32_t source, uint32_t destination, uint32_t offset, uint32_t size)
 {
     BYTE data;
-    for (uint32_t i = 0; i < size; i++) {
-        if (__read_user_mem(caller, 0, source, offset + i, &data) != 0) {
+    for (uint32_t i = 0; i < size; i++)
+    {
+        if (__read_user_mem(caller, 0, source, offset + i, &data) != 0)
+        {
             return -1;
         }
-        if (__write_kernel_mem(caller, 0, destination, offset + i, data) != 0) {
+        if (__write_kernel_mem(caller, 0, destination, offset + i, data) != 0)
+        {
             return -1;
         }
     }
@@ -505,11 +510,14 @@ int libkmem_copy_from_user(struct pcb_t *caller, uint32_t source, uint32_t desti
 int libkmem_copy_to_user(struct pcb_t *caller, uint32_t source, uint32_t destination, uint32_t offset, uint32_t size)
 {
     BYTE data;
-    for (uint32_t i = 0; i < size; i++) {
-        if (__read_kernel_mem(caller, 0, source, offset + i, &data) != 0) {
+    for (uint32_t i = 0; i < size; i++)
+    {
+        if (__read_kernel_mem(caller, 0, source, offset + i, &data) != 0)
+        {
             return -1;
         }
-        if (__write_user_mem(caller, 0, destination, offset + i, data) != 0) {
+        if (__write_user_mem(caller, 0, destination, offset + i, data) != 0)
+        {
             return -1;
         }
     }
